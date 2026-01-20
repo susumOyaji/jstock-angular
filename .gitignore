@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+client-frontend/node_modules/
+server/node_modules/
+
+# Build outputs
+dist/
+client-frontend/dist/
+server/dist/
+
+# Build cache
+.angular/
+
+# Database
+jstock.db
+
+# Temporary files
+test-portfolio.html
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

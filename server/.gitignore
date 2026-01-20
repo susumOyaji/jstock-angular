@@ -1,0 +1,9 @@
+# Node modules
+node_modules/
+
+# Database file
+jstock.db
+
+# Compiled output (if any, though ts-node-dev is used for dev)
+/dist
+/build
