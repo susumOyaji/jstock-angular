@@ -21,17 +21,17 @@
         <div class="form-group">
           <label>Ticker (e.g. 7203, 9984)</label>
           <div class="flex-input-group">
-            <input [(ngModel)]="newStockCode" placeholder="Stock Code" (keyup.enter)="lookupStockInfo()">
-            <button class="btn px-0-5" (click)="lookupStockInfo()" [disabled]="isLookingUp">
-              <span class="material-icons">{{ isLookingUp ? 'sync' : 'search' }}</span>
+            <input [value]="newStockCode()" (input)="onStockCodeChange($any($event).target.value)" placeholder="Stock Code" (keyup.enter)="lookupStockInfo()">
+            <button class="btn px-0-5" (click)="lookupStockInfo()" [disabled]="isLookingUp()">
+              <span class="material-icons">{{ isLookingUp() ? 'sync' : 'search' }}</span>
             </button>
           </div>
         </div>
         <div class="form-group">
           <label>Company Name</label>
-          <input [(ngModel)]="newStockName" placeholder="Name">
+          <input [value]="newStockName()" (input)="onStockNameChange($any($event).target.value)" placeholder="Name">
         </div>
-        <button class="btn width-full" (click)="handleAddStock()" [disabled]="!newStockCode || !newStockName">
+        <button class="btn width-full" (click)="handleAddStock()" [disabled]="!newStockCode() || !newStockName()">
           <span class="material-icons">add_chart</span>
           <span>Add to Watchlist</span>
         </button>

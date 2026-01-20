@@ -1,7 +1,46 @@
-import { spawn } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import fetch from 'node-fetch';
 import { DailyPrice } from './db';
+
+// Helper to fetch data from Yahoo Finance CSV
+async function fetchYahooFinanceCSV(ticker: string, startDate: Date, endDate: Date): Promise<any[]> {
+    const startTimestamp = Math.floor(startDate.getTime() / 1000);
+    const endTimestamp = Math.floor(endDate.getTime() / 1000);
+    
+    const url = `https://query1.finance.yahoo.com/v7/finance/download/${ticker}?period1=${startTimestamp}&period2=${endTimestamp}&interval=1d&events=history&includeAdjustedClose=true`;
+    
+    const response = await fetch(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+        }
+    }) as any;
+    
+    if (!response.ok) {
+        throw new Error(`Yahoo Finance API error: ${response.statusText}`);
+    }
+    
+    const csv = await response.text();
+    const lines = csv.split('\n').filter((l: string) => l.trim() !== '');
+    const result = [];
+    
+    // Skip header
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',');
+        if (cols.length < 6) continue;
+        
+        result.push({
+            date: cols[0],
+            open: parseFloat(cols[1]),
+            high: parseFloat(cols[2]),
+            low: parseFloat(cols[3]),
+            close: parseFloat(cols[4]),
+            volume: parseInt(cols[6], 10) // Adjusted Close is cols[5], Volume is cols[6]
+        });
+    }
+    
+    return result;
+}
 
 export async function fetchStockData(
     code: string,
@@ -17,36 +56,66 @@ export async function fetchStockData(
         return parseCsv(csvPath, code);
     }
 
-    // Otherwise, download via Python
-    const success = await downloadStockDataViaPython(code, days, csvPath);
-    if (success) {
-        return parseCsv(csvPath, code);
+    // Otherwise, download via yahoo-finance2
+    try {
+        const prices = await downloadStockDataViaYahooFinance(code, days);
+        if (prices.length > 0) {
+            // Save to CSV
+            await savePricesToCsv(prices, csvPath);
+            return prices;
+        }
+    } catch (err) {
+        console.error(`Error fetching data for ${code}:`, err);
     }
     return [];
 }
 
-function downloadStockDataViaPython(
+async function downloadStockDataViaYahooFinance(
     code: string,
-    days: number,
-    outputPath: string
-): Promise<boolean> {
-    return new Promise((resolve) => {
-        const scriptPath = path.join(process.cwd(), 'scripts', 'download_stock_data.py');
-        const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    days: number
+): Promise<DailyPrice[]> {
+    // Format ticker for Yahoo Finance
+    const ticker = code.match(/^\d{4}$/) ? `${code}.T` : code;
 
-        // yfinance assumes .T for Tokyo for numeric codes usually
-        const ticker = code.match(/^\d{4}$/) ? `${code}.T` : code;
+    const endDate = new Date();
+    const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);
 
-        const downloadProcess = spawn(pythonCmd, [scriptPath, ticker, String(days), outputPath]);
+    try {
+        const csvData = await fetchYahooFinanceCSV(ticker, startDate, endDate);
+        
+        const prices: DailyPrice[] = csvData.map((item: any) => ({
+            code,
+            date: item.date,
+            open: item.open || 0,
+            high: item.high || 0,
+            low: item.low || 0,
+            close: item.close || 0,
+            volume: item.volume || 0
+        }));
 
-        downloadProcess.on('close', (code) => {
-            resolve(code === 0);
-        });
+        // Return sorted by date DESC (newest first) for analysis logic
+        return prices.sort((a, b) => b.date.localeCompare(a.date));
+    } catch (err) {
+        console.error(`Yahoo Finance error for ${ticker}:`, err);
+        throw err;
+    }
+}
 
-        downloadProcess.stderr.on('data', (data) => {
-            console.error(`Python Error [${ticker}]: ${data}`);
-        });
-    });
+async function savePricesToCsv(prices: DailyPrice[], csvPath: string): Promise<void> {
+    // Ensure directory exists
+    const dir = path.dirname(csvPath);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // Create CSV content
+    const header = 'Date,Open,High,Low,Close,Volume\n';
+    const rows = prices
+        .sort((a, b) => a.date.localeCompare(b.date)) // Sort ascending for CSV
+        .map(p => `${p.date},${p.open},${p.high},${p.low},${p.close},${p.volume}`)
+        .join('\n');
+
+    fs.writeFileSync(csvPath, header + rows);
 }
 
 function parseCsv(filePath: string, code: string): DailyPrice[] {
@@ -55,7 +124,6 @@ function parseCsv(filePath: string, code: string): DailyPrice[] {
     const prices: DailyPrice[] = [];
 
     // Expected Header: Date,Open,High,Low,Close,Volume,...
-    // yfinance CSV usually starts with Date
     const header = lines[0].split(',');
     const dateIdx = header.indexOf('Date');
     const openIdx = header.indexOf('Open');
@@ -68,7 +136,7 @@ function parseCsv(filePath: string, code: string): DailyPrice[] {
         const cols = lines[i].split(',');
         if (cols.length < 6) continue;
 
-        // Handle date parsing trap mentioned in article (YYYY-MM-DD HH:MM:SS+TZ or YYYY-MM-DD)
+        // Handle date parsing (YYYY-MM-DD)
         let dateRaw = cols[dateIdx];
         let dateStr = dateRaw;
         const iso8601Match = dateRaw.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -91,35 +159,37 @@ function parseCsv(filePath: string, code: string): DailyPrice[] {
     return prices.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export function fetchStockInfo(code: string): Promise<{ code: string, name: string, market: string }> {
-    return new Promise((resolve, reject) => {
-        const scriptPath = path.join(process.cwd(), 'scripts', 'fetch_stock_info.py');
-        const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-        const ticker = code.match(/^\d{4}$/) ? `${code}.T` : code;
+export async function fetchStockInfo(code: string): Promise<{ code: string, name: string, market: string }> {
+    const ticker = code.match(/^\d{4}$/) ? `${code}.T` : code;
 
-        const process_cp = spawn(pythonCmd, [scriptPath, ticker]);
-        let output = '';
-        let errorOutput = '';
-
-        process_cp.stdout.on('data', (data) => {
-            output += data.toString();
-        });
-
-        process_cp.stderr.on('data', (data) => {
-            errorOutput += data.toString();
-        });
-
-        process_cp.on('close', (exitCode) => {
-            if (exitCode === 0) {
-                try {
-                    const result = JSON.parse(output);
-                    resolve(result);
-                } catch (e) {
-                    reject(new Error('Failed to parse output: ' + output));
-                }
-            } else {
-                reject(new Error(errorOutput || 'Process exited with code ' + exitCode));
+    try {
+        const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${ticker}?modules=price`;
+        
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
             }
-        });
-    });
+        }) as any;
+
+        if (!response.ok) {
+            throw new Error(`Yahoo Finance API error: ${response.statusText}`);
+        }
+
+        const data: any = await response.json();
+        const price = data.quoteSummary?.result?.[0]?.price;
+        
+        return {
+            code,
+            name: price?.longName || price?.shortName || ticker,
+            market: price?.exchange || ''
+        };
+    } catch (err) {
+        console.error(`Error fetching stock info for ${ticker}:`, err);
+        // Fallback response
+        return {
+            code,
+            name: ticker,
+            market: ''
+        };
+    }
 }
