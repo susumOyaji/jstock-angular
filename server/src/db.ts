@@ -114,6 +114,9 @@ export const dbOps = {
     `);
         stmt.run(signal.code, signal.date, signal.type, signal.targetPrice, signal.tp, signal.sl, signal.reason || null, 'NEW');
     },
+    clearSignals: () => {
+        db.prepare('DELETE FROM signals').run();
+    },
     getSignals: (): Signal[] => {
         return db.prepare('SELECT * FROM signals ORDER BY date DESC').all() as Signal[];
     },

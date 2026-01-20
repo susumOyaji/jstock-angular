@@ -117,6 +117,10 @@ app.post('/api/update', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
 
     logs.push(`Starting update for ${stocks.length} stocks...`);
+    
+    // Clear old signals before analysis
+    dbOps.clearSignals();
+    logs.push('Cleared previous signals.');
 
     let newSignalsCount = 0;
 

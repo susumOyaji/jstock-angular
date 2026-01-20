@@ -69,27 +69,12 @@ export class App implements OnInit {
   }
 
   handleBuy(code: string, price: number) {
-    console.log('🛒 handleBuy called:', { code, price });
-
     const shares = prompt(`[${code}] 何株購入しますか？`, '100');
-    console.log('User entered shares:', shares);
-    console.log('Type of shares:', typeof shares);
-    console.log('shares is null?', shares === null);
-    console.log('shares is empty string?', shares === '');
-
-    if (shares !== null && shares !== '') {
-      const parsedShares = parseInt(shares, 10);
-      console.log('Parsed shares:', parsedShares);
-      console.log('Is NaN?', isNaN(parsedShares));
-    }
 
     if (!shares || isNaN(parseInt(shares || ''))) {
-      console.log('❌ Invalid shares input, aborting');
-      console.log('Reason: shares =', shares, ', isNaN(parseInt(shares || \'\')) =', isNaN(parseInt(shares || '')));
       return;
     }
 
-    // At this point, shares is guaranteed to be a non-empty string
     const portfolioItem = {
       code,
       shares: parseInt(shares, 10),
@@ -97,16 +82,12 @@ export class App implements OnInit {
       purchaseDate: new Date().toISOString().split('T')[0]
     };
 
-    console.log('📤 Sending to API:', portfolioItem);
-
     this.api.addToPortfolio(portfolioItem).subscribe({
-      next: (response) => {
-        console.log('✅ API Response:', response);
+      next: () => {
         alert(`購入しました: ${code} (${shares}株 @ ¥${price})`);
         this.refreshData();
       },
       error: (error) => {
-        console.error('❌ API Error:', error);
         alert(`エラーが発生しました: ${error.message || 'Unknown error'}`);
       }
     });

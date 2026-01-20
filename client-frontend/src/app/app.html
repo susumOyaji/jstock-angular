@@ -1,36 +1,28 @@
 <div class="container">
   <header>
-    <h1>J-Stock Auto Planner <span
-        style="font-size: 0.5em; vertical-align: middle; color: var(--text-muted); font-weight: 300;">powered by
-        Antigravity</span></h1>
-    <div style="display: flex; gap: 1rem; align-items: center;">
+    <h1>J-Stock Auto Planner <span class="subtitle">powered by Antigravity</span></h1>
+    <div class="flex-row">
       <button class="btn" (click)="refreshData()" title="Sync data with server">
         <span class="material-icons">refresh</span>
         <span>同期 (Sync)</span>
       </button>
-      <button class="btn" (click)="handleUpdate()" [disabled]="loading()" id="run-analysis-btn"
-        style="background: linear-gradient(135deg, #f59e0b, #ef4444);">
+      <button class="btn gradient-warning" (click)="handleUpdate()" [disabled]="loading()" id="run-analysis-btn">
         <span class="material-icons">{{ loading() ? 'hourglass_empty' : 'analytics' }}</span>
         <span>{{ loading() ? '分析中...' : '分析を実行 (Run Analysis)' }}</span>
-      </button>
-      <button class="btn" (click)="handleBuy('7203', 1500)"
-        style="background: linear-gradient(135deg, #10b981, #059669);">
-        <span class="material-icons">shopping_cart</span>
-        <span>🧪 Test Buy (7203)</span>
       </button>
     </div>
   </header>
 
   <div class="dashboard-grid">
     <!-- Left Column: Settings and Portfolio -->
-    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <div class="flex-col">
       <section class="card">
         <h2>Add Stock</h2>
         <div class="form-group">
           <label>Ticker (e.g. 7203, 9984)</label>
-          <div style="display: flex; gap: 0.5rem;">
+          <div class="flex-input-group">
             <input [(ngModel)]="newStockCode" placeholder="Stock Code" (keyup.enter)="lookupStockInfo()">
-            <button class="btn" style="padding: 0.5rem;" (click)="lookupStockInfo()" [disabled]="isLookingUp">
+            <button class="btn px-0-5" (click)="lookupStockInfo()" [disabled]="isLookingUp">
               <span class="material-icons">{{ isLookingUp ? 'sync' : 'search' }}</span>
             </button>
           </div>
@@ -39,36 +31,35 @@
           <label>Company Name</label>
           <input [(ngModel)]="newStockName" placeholder="Name">
         </div>
-        <button class="btn" style="width: 100%;" (click)="handleAddStock()" [disabled]="!newStockCode || !newStockName">
+        <button class="btn width-full" (click)="handleAddStock()" [disabled]="!newStockCode || !newStockName">
           <span class="material-icons">add_chart</span>
-          <span>銘柄を追加 (Add to Watchlist)</span>
+          <span>Add to Watchlist</span>
         </button>
       </section>
 
       <!-- Portfolio Section -->
       <section class="card">
-        <h2>Portfolio (保有株)</h2>
+        <h2>Portfolio </h2>
         <div *ngIf="portfolioItems().length === 0"
-          style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.9em;">
+          class="p-1 text-center text-muted">
           保有株はありません。
         </div>
         <div *ngFor="let item of portfolioItems()"
-          style="border-bottom: 1px solid rgba(255,255,255,0.05); padding: 0.75rem 0;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+          class="border-bottom-thin p-0-75">
+          <div class="flex-between">
             <div>
               <span class="badge badge-blue">#{{ item.code }}</span>
-              <span style="font-weight: 600; font-size: 0.9rem; margin-left: 0.5rem;">{{ item.name }}</span>
+              <span class="text-bold text-small ml-0-5">{{ item.name }}</span>
             </div>
-            <button class="btn-icon" (click)="handleSell(item)" title="売却"
-              style="color: var(--accent-red); background: none; border: none; cursor: pointer;">
-              <span class="material-icons" style="font-size: 1.1rem;">exit_to_app</span>
+            <button class="btn-icon-action btn-icon-red" (click)="handleSell(item)" title="売却">
+              <span class="material-icons icon-lg">exit_to_app</span>
             </button>
           </div>
-          <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-top: 0.4rem;">
-            <span style="color: var(--text-muted);">{{ item.shares }}株 @ ¥{{ item.purchasePrice | number }}</span>
+          <div class="flex-spacer">
+            <span class="text-muted">{{ item.shares }}株 @ ¥{{ item.purchasePrice | number }}</span>
             <span *ngIf="item.currentPrice"
               [style.color]="(item.currentPrice - item.purchasePrice) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'"
-              style="font-weight: 700;">
+              class="text-bold-lg">
               {{ (item.currentPrice - item.purchasePrice) * item.shares | number }}
               ({{ (item.currentPrice - item.purchasePrice) / item.purchasePrice | percent:'1.1-1' }})
             </span>
@@ -85,10 +76,10 @@
     </div>
 
     <!-- Right Column: Results -->
-    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <div class="flex-col">
       <!-- Sell Signals Area -->
       <section class="card" *ngIf="signals().length > 0">
-        <h2 style="color: #f87171;"><span class="material-icons">trending_down</span> Sell Signals (売り推奨)</h2>
+        <h2 class="color-red"><span class="material-icons">trending_down</span> Sell Signals </h2>
         <table class="data-table">
           <thead>
             <tr>
@@ -103,10 +94,9 @@
               <tr *ngIf="s.type === 'SELL'">
                 <td>{{ s.date | date:'shortDate' }}</td>
                 <td><span class="badge badge-red">#{{ s.code }}</span></td>
-                <td style="font-size: 0.85rem;">{{ s.reason }}</td>
+                <td class="text-small">{{ s.reason }}</td>
                 <td>
-                  <button class="btn btn-icon" (click)="handleBuy(s.code, s.targetPrice)"
-                    style="background: transparent; color: var(--accent-red); border: none; cursor: pointer;">
+                  <button class="btn btn-icon btn-icon-action btn-icon-red" (click)="handleBuy(s.code, s.targetPrice)">
                     <span class="material-icons">sell</span>
                   </button>
                 </td>
@@ -117,8 +107,8 @@
       </section>
 
       <section class="card">
-        <h2 style="color: #4ade80;"><span class="material-icons">trending_up</span> Buy Signals (買い推奨)</h2>
-        <div *ngIf="signals().length === 0" style="padding: 2rem; text-align: center; color: var(--text-muted);">
+        <h2 class="color-green"><span class="material-icons">trending_up</span> Buy Signals </h2>
+        <div *ngIf="signals().length === 0" class="p-1 text-center text-muted">
           No buy signals detected today. Run analysis to scan the market.
         </div>
         <table class="data-table" *ngIf="signals().length > 0">
@@ -136,14 +126,13 @@
               <tr *ngIf="s.type === 'BUY'">
                 <td>{{ s.date | date:'shortDate' }}</td>
                 <td><span class="badge badge-blue">#{{ s.code }}</span></td>
-                <td style="font-weight: 600;">¥{{ s.targetPrice | number }}</td>
-                <td style="font-size: 0.85em;">
-                  <span style="color: var(--accent-green);">TP:¥{{ s.tp | number }}</span><br>
-                  <span style="color: var(--accent-red);">SL:¥{{ s.sl | number }}</span>
+                <td class="text-bold">¥{{ s.targetPrice | number }}</td>
+                <td class="text-small">
+                  <span class="text-color-green">TP:¥{{ s.tp | number }}</span><br>
+                  <span class="text-color-red">SL:¥{{ s.sl | number }}</span>
                 </td>
                 <td>
-                  <button class="btn btn-icon" (click)="handleBuy(s.code, s.targetPrice)"
-                    style="background: transparent; color: var(--accent-green); border: none; cursor: pointer;">
+                  <button class="btn btn-icon btn-icon-action btn-icon-green" (click)="handleBuy(s.code, s.targetPrice)">
                     <span class="material-icons">shopping_cart</span>
                   </button>
                 </td>
@@ -170,14 +159,14 @@
             <tr *ngFor="let stock of stocks()">
               <td><span class="badge badge-blue">{{ stock.code }}</span></td>
               <td>{{ stock.name }}</td>
-              <td style="font-weight: 600;">{{ stock.currentPrice ? '¥' + (stock.currentPrice | number) : '-' }}</td>
+              <td class="text-bold">{{ stock.currentPrice ? '¥' + (stock.currentPrice | number) : '-' }}</td>
               <td>
                 <span *ngIf="stock.currentPrice && stock.prevClose"
                   [style.color]="(stock.currentPrice - stock.prevClose) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'"
-                  style="font-weight: 600;">
+                  class="text-bold">
                   {{ (stock.currentPrice - stock.prevClose) / stock.prevClose | percent:'1.1-1' }}
                 </span>
-                <span *ngIf="!stock.currentPrice || !stock.prevClose" style="color: var(--text-muted);">-</span>
+                <span *ngIf="!stock.currentPrice || !stock.prevClose" class="text-muted">-</span>
               </td>
               <td>
                 <span class="badge" [ngClass]="stock.hasDataToday ? 'badge-green' : 'badge-red'">
@@ -185,14 +174,12 @@
                 </span>
               </td>
               <td>
-                <div style="display: flex; gap: 0.5rem;">
-                  <button class="btn-icon" (click)="handleBuy(stock.code, stock.currentPrice || 0)" title="購入"
-                    style="color: var(--accent-green); background: none; border: none; cursor: pointer;">
-                    <span class="material-icons" style="font-size: 1.1rem;">shopping_cart</span>
+                <div class="flex-icon-row">
+                  <button class="btn-icon-action btn-icon-green" (click)="handleBuy(stock.code, stock.currentPrice || 0)" title="購入">
+                    <span class="material-icons icon-lg">shopping_cart</span>
                   </button>
-                  <button class="btn-icon" (click)="handleDeleteStock(stock.code)" title="Delete Stock"
-                    style="background: transparent; color: var(--accent-red); padding: 2px; border: none; cursor: pointer;">
-                    <span class="material-icons" style="font-size: 1.1rem;">delete_outline</span>
+                  <button class="btn-icon-action btn-icon-red p-2px" (click)="handleDeleteStock(stock.code)" title="Delete Stock">
+                    <span class="material-icons icon-lg">delete_outline</span>
                   </button>
                 </div>
               </td>
@@ -207,7 +194,7 @@
   <div class="modal-overlay" *ngIf="isModalOpen()">
     <div class="modal-card">
       <div class="modal-header">
-        <span class="material-icons" style="color: #ef4444; margin-right: 0.5rem;">warning</span>
+        <span class="material-icons color-modal-icon mr-0-5">warning</span>
         <h3>銘柄の削除</h3>
       </div>
       <div class="modal-body">
