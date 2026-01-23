@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+const Database = require('better-sqlite3');
 import * as path from 'path';
 
 const dbPath = path.join(process.cwd(), 'jstock.db');
