@@ -32,6 +32,27 @@ export function calculateRSI(data: DailyPrice[], period: number = 14): number | 
     return 100 - (100 / (1 + rs));
 }
 
+// Helper function to create signal
+function createSignal(
+    code: string,
+    date: string,
+    type: 'BUY' | 'SELL',
+    targetPrice: number,
+    reason: string,
+    tp: number = 0,
+    sl: number = 0
+): Signal {
+    return {
+        code,
+        date,
+        type,
+        targetPrice,
+        tp,
+        sl,
+        reason
+    };
+}
+
 export function analyzeStockForBuy(stock: Stock, prices: DailyPrice[]): Signal | null {
     if (prices.length < 75) return null;
 
@@ -52,15 +73,15 @@ export function analyzeStockForBuy(stock: Stock, prices: DailyPrice[]): Signal |
     if (today.volume <= volMa20) return null; // 5. 出来高確認
 
     const targetPrice = Math.floor(today.close * 0.995);
-    return {
-        code: stock.code,
-        date: today.date,
-        type: 'BUY',
+    return createSignal(
+        stock.code,
+        today.date,
+        'BUY',
         targetPrice,
-        tp: Math.floor(targetPrice * SELL_PROFIT_RATIO),
-        sl: Math.floor(targetPrice * SELL_LOSS_RATIO),
-        reason: 'RSI(40-60) Rising + MA Trend + Vol Sync'
-    };
+        'RSI(40-60) Rising + MA Trend + Vol Sync',
+        Math.floor(targetPrice * SELL_PROFIT_RATIO),
+        Math.floor(targetPrice * SELL_LOSS_RATIO)
+    );
 }
 
 export function analyzeStockForSell(stock: Stock, prices: DailyPrice[], purchasePrice?: number): Signal | null {
@@ -72,55 +93,46 @@ export function analyzeStockForSell(stock: Stock, prices: DailyPrice[], purchase
 
     if (!rsi || !ma25) return null;
 
-    // 1. RSI Overbought
+    // 1. RSI Overbought (Priority 1)
     if (rsi > 75) {
-        return {
-            code: stock.code,
-            date: today.date,
-            type: 'SELL',
-            targetPrice: today.close,
-            tp: 0,
-            sl: 0,
-            reason: `Overbought (RSI: ${Math.round(rsi)})`
-        };
+        return createSignal(
+            stock.code,
+            today.date,
+            'SELL',
+            today.close,
+            `Overbought (RSI: ${Math.round(rsi)})`
+        );
     }
 
-    // 2. Trend Break (Close below MA25)
+    // 2. Trend Break (Close below MA25) (Priority 2)
     if (today.close < ma25) {
-        return {
-            code: stock.code,
-            date: today.date,
-            type: 'SELL',
-            targetPrice: today.close,
-            tp: 0,
-            sl: 0,
-            reason: 'Trend Break (Below MA25)'
-        };
+        return createSignal(
+            stock.code,
+            today.date,
+            'SELL',
+            today.close,
+            'Trend Break (Below MA25)'
+        );
     }
 
-    // 3. Simple Profit/Loss Target (if purchase price provided)
+    // 3. Simple Profit/Loss Target (Priority 3, only if purchase price provided)
     if (purchasePrice) {
         if (today.close >= purchasePrice * SELL_PROFIT_RATIO) {
-            return {
-                code: stock.code,
-                date: today.date,
-                type: 'SELL',
-                targetPrice: today.close,
-                tp: 0,
-                sl: 0,
-                reason: 'Target Profit Reached (+5%)'
-            };
-        }
-        if (today.close <= purchasePrice * SELL_LOSS_RATIO) {
-            return {
-                code: stock.code,
-                date: today.date,
-                type: 'SELL',
-                targetPrice: today.close,
-                tp: 0,
-                sl: 0,
-                reason: 'Stop Loss Hit (-3%)'
-            };
+            return createSignal(
+                stock.code,
+                today.date,
+                'SELL',
+                today.close,
+                'Target Profit Reached (+5%)'
+            );
+        } else if (today.close <= purchasePrice * SELL_LOSS_RATIO) {
+            return createSignal(
+                stock.code,
+                today.date,
+                'SELL',
+                today.close,
+                'Stop Loss Hit (-3%)'
+            );
         }
     }
 

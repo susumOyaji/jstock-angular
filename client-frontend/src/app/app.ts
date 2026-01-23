@@ -20,9 +20,20 @@ export class App implements OnInit {
   loading = signal(false);
 
   // Form for adding stock
-  newStockCode = '';
-  newStockName = '';
-  isLookingUp = false;
+  newStockCode = signal('');
+  newStockName = signal('');
+  isLookingUp = signal(false);
+
+  // Handle input changes
+  onStockCodeChange(value: any) {
+    const code = typeof value === 'string' ? value : (value.target?.value || '');
+    this.newStockCode.set(code);
+  }
+
+  onStockNameChange(value: any) {
+    const name = typeof value === 'string' ? value : (value.target?.value || '');
+    this.newStockName.set(name);
+  }
 
   // Custom Modal State
   isModalOpen = signal(false);
@@ -55,10 +66,10 @@ export class App implements OnInit {
   }
 
   handleAddStock() {
-    if (!this.newStockCode || !this.newStockName) return;
-    this.api.addStock({ code: this.newStockCode, name: this.newStockName }).subscribe(() => {
-      this.newStockCode = '';
-      this.newStockName = '';
+    if (!this.newStockCode() || !this.newStockName()) return;
+    this.api.addStock({ code: this.newStockCode(), name: this.newStockName() }).subscribe(() => {
+      this.newStockCode.set('');
+      this.newStockName.set('');
       this.refreshData();
     });
   }
@@ -69,27 +80,12 @@ export class App implements OnInit {
   }
 
   handleBuy(code: string, price: number) {
-    console.log('🛒 handleBuy called:', { code, price });
-
     const shares = prompt(`[${code}] 何株購入しますか？`, '100');
-    console.log('User entered shares:', shares);
-    console.log('Type of shares:', typeof shares);
-    console.log('shares is null?', shares === null);
-    console.log('shares is empty string?', shares === '');
-
-    if (shares !== null && shares !== '') {
-      const parsedShares = parseInt(shares, 10);
-      console.log('Parsed shares:', parsedShares);
-      console.log('Is NaN?', isNaN(parsedShares));
-    }
 
     if (!shares || isNaN(parseInt(shares || ''))) {
-      console.log('❌ Invalid shares input, aborting');
-      console.log('Reason: shares =', shares, ', isNaN(parseInt(shares || \'\')) =', isNaN(parseInt(shares || '')));
       return;
     }
 
-    // At this point, shares is guaranteed to be a non-empty string
     const portfolioItem = {
       code,
       shares: parseInt(shares, 10),
@@ -97,16 +93,12 @@ export class App implements OnInit {
       purchaseDate: new Date().toISOString().split('T')[0]
     };
 
-    console.log('📤 Sending to API:', portfolioItem);
-
     this.api.addToPortfolio(portfolioItem).subscribe({
-      next: (response) => {
-        console.log('✅ API Response:', response);
+      next: () => {
         alert(`購入しました: ${code} (${shares}株 @ ¥${price})`);
         this.refreshData();
       },
       error: (error) => {
-        console.error('❌ API Error:', error);
         alert(`エラーが発生しました: ${error.message || 'Unknown error'}`);
       }
     });
@@ -140,17 +132,21 @@ export class App implements OnInit {
   }
 
   lookupStockInfo() {
-    if (this.newStockCode.length >= 4) {
-      this.isLookingUp = true;
-      this.api.getStockInfo(this.newStockCode).subscribe({
-        next: (info) => {
-          this.newStockName = info.name;
-          this.isLookingUp = false;
-        },
-        error: () => {
-          this.isLookingUp = false;
-        }
-      });
+    const code = this.newStockCode();
+    if (code.length < 4) {
+      alert('銘柄コードは4文字以上である必要があります');
+      return;
     }
+    this.isLookingUp.set(true);
+    this.api.getStockInfo(code).subscribe({
+      next: (info) => {
+        this.newStockName.set(info.name);
+        this.isLookingUp.set(false);
+      },
+      error: (err) => {
+        alert(`銘柄情報取得エラー: ${err.status} ${err.statusText}`);
+        this.isLookingUp.set(false);
+      }
+    });
   }
 }
